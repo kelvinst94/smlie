@@ -94,11 +94,24 @@ let detectionLoop = null;
 
 async function loadModels() {
   try {
-    const URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(URL),
-      faceapi.nets.faceExpressionNet.loadFromUri(URL)
-    ]);
+    // Try jsdelivr first
+    let URL = "https://cdn.jsdelivr.net/npm/face-api.js/dist/weights";
+    
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(URL)
+      ]);
+    } catch (e) {
+      // Fallback to unpkg
+      console.log("Trying unpkg CDN...");
+      URL = "https://unpkg.com/face-api.js@0.22.2/dist/weights";
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(URL)
+      ]);
+    }
+    
     statusText.innerText = "✅ Models loaded. Bật camera...";
   } catch (error) {
     statusText.innerText = "❌ Lỗi tải models: " + error.message;
