@@ -1,199 +1,100 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<title>Smile To Get Voucher 😄</title>
-
-<!-- Face API -->
-<script async src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
-<style>
-  * {
-    box-sizing: border-box;
-    font-family: "Segoe UI", sans-serif;
-  }
-  body {
-    margin: 0;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .card {
-    background: white;
-    padding: 24px;
-    border-radius: 20px;
-    width: 380px;
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-  }
-  h1 {
-    margin: 0;
-    font-size: 22px;
-  }
-  p {
-    color: #666;
-    font-size: 14px;
-  }
-  video {
-    width: 100%;
-    border-radius: 12px;
-    margin-top: 12px;
-  }
-  .progress {
-    margin-top: 12px;
-    height: 14px;
-    background: #eee;
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg,#ff9a9e,#fad0c4);
-    transition: width 0.2s;
-  }
-  .status {
-    margin-top: 10px;
-    font-weight: bold;
-  }
-  .footer {
-    margin-top: 10px;
-    font-size: 12px;
-    color: #aaa;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smile to Win | Nhận Voucher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        #video-container video { transform: scaleX(-1); } /* Hiệu ứng gương */
+        .progress-bar { transition: width 0.2s ease-out; }
+    </style>
 </head>
+<body class="bg-gradient-to-br from-yellow-100 to-orange-200 min-h-screen flex flex-col items-center justify-center p-4">
 
-<body>
+    <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md text-center">
+        <h1 class="text-3xl font-extrabold text-orange-600 mb-2">SMILE & WIN! 🎁</h1>
+        <p class="text-gray-500 mb-6">Cười thật tươi để mở khóa Voucher nội bộ nhé</p>
 
-<div class="card">
-  <h1>😄 Cười thật tươi!</h1>
-  <p>Cười đủ mức để mở voucher nội bộ</p>
+        <div id="video-container" class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-6 border-4 border-orange-400 shadow-inner">
+            <video id="video" class="w-full h-full object-cover" autoplay muted playsinline></video>
+            <div id="loading-overlay" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
+                <span class="animate-pulse">Đang tải AI...</span>
+            </div>
+        </div>
 
-  <video id="video" autoplay muted></video>
+        <div class="mb-4">
+            <div class="flex justify-between mb-1 text-sm font-medium text-orange-700">
+                <span>Độ tươi nụ cười</span>
+                <span id="score-text">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="progress" class="bg-orange-500 h-4 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
 
-  <div class="progress">
-    <div class="bar" id="bar"></div>
-  </div>
+        <p id="status-message" class="text-lg font-semibold text-gray-700 h-8">Đang khởi động camera...</p>
+    </div>
 
-  <div class="status" id="status">Đang chờ nụ cười...</div>
-  <div class="footer">Powered by AI</div>
-</div>
+    <script>
+        const video = document.getElementById('video');
+        const progress = document.getElementById('progress');
+        const scoreText = document.getElementById('score-text');
+        const statusMessage = document.getElementById('status-message');
+        const loadingOverlay = document.getElementById('loading-overlay');
 
-<script>
-const video = document.getElementById("video");
-const statusText = document.getElementById("status");
-const bar = document.getElementById("bar");
+        const VOUCHER_LINK = "https://your-voucher-link.com"; // THAY LINK CỦA BẠN TẠI ĐÂY
 
-const VOUCHER_URL = "https://your-voucher-link.com";
-const SMILE_THRESHOLD = 0.75;
-let unlocked = false;
-let detectionLoop = null;
+        // Tải Model từ GitHub (đã nén để load nhanh)
+        async function loadModels() {
+            const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+            startVideo();
+        }
 
-async function loadModels() {
-  try {
-    // Try jsdelivr first
-    let URL = "https://cdn.jsdelivr.net/npm/face-api.js/dist/weights";
-    
-    try {
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(URL)
-      ]);
-    } catch (e) {
-      // Fallback to unpkg
-      console.log("Trying unpkg CDN...");
-      URL = "https://unpkg.com/face-api.js@0.22.2/dist/weights";
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(URL)
-      ]);
-    }
-    
-    statusText.innerText = "✅ Models loaded. Bật camera...";
-  } catch (error) {
-    statusText.innerText = "❌ Lỗi tải models: " + error.message;
-    console.error("Model loading error:", error);
-    throw error;
-  }
-}
+        async function startVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" } 
+                });
+                video.srcObject = stream;
+                loadingOverlay.classList.add('hidden');
+                statusMessage.innerText = "Sẵn sàng! Cười lên nào 😊";
+                detectSmile();
+            } catch (err) {
+                statusMessage.innerText = "Lỗi: Không thể truy cập camera";
+                console.error(err);
+            }
+        }
 
-async function startCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-  } catch (error) {
-    statusText.innerText = "❌ Lỗi camera: " + error.message;
-    console.error("Camera error:", error);
-  }
-}
+        async function detectSmile() {
+            setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceExpressions();
 
-video.addEventListener("play", () => {
-  detectionLoop = setInterval(async () => {
-    if (unlocked) {
-      clearInterval(detectionLoop);
-      return;
-    }
+                if (detections && detections.length > 0) {
+                    const happyScore = detections[0].expressions.happy;
+                    const percent = Math.round(happyScore * 100);
 
-    try {
-      const result = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceExpressions();
+                    progress.style.width = percent + "%";
+                    scoreText.innerText = percent + "%";
 
-      if (!result) {
-        statusText.innerText = "😶 Không thấy khuôn mặt";
-        bar.style.width = "0%";
-        return;
-      }
+                    if (happyScore > 0.85) {
+                        statusMessage.innerText = "TUYỆT VỜI! Đang lấy Voucher...";
+                        statusMessage.classList.add('text-green-600');
+                        setTimeout(() => {
+                            window.location.href = VOUCHER_LINK;
+                        }, 1500);
+                    } else if (happyScore > 0.3) {
+                        statusMessage.innerText = "Tươi hơn chút nữa nào!";
+                    }
+                }
+            }, 300);
+        }
 
-      const smile = result.expressions.happy;
-      bar.style.width = Math.min(smile * 100, 100) + "%";
-      statusText.innerText = `Mức cười: ${(smile * 100).toFixed(0)}%`;
-
-      if (smile >= SMILE_THRESHOLD) {
-        unlocked = true;
-        clearInterval(detectionLoop);
-        statusText.innerText = "🎉 Thành công! Mở voucher...";
-        setTimeout(() => {
-          window.location.href = VOUCHER_URL;
-        }, 1200);
-      }
-    } catch (error) {
-      console.error("Detection error:", error);
-    }
-  }, 300);
-});
-
-async function init() {
-  statusText.innerText = "⏳ Đang khởi tạo...";
-  
-  // Wait for Face API to be available
-  let attempts = 0;
-  while (typeof faceapi === "undefined" && attempts < 50) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
-  }
-  
-  if (typeof faceapi === "undefined") {
-    statusText.innerText = "❌ Face API không load. Kiểm tra kết nối internet";
-    console.error("Face API still not available after waiting");
-    return;
-  }
-  
-  try {
-    await loadModels();
-    await startCamera();
-  } catch (error) {
-    statusText.innerText = "❌ Lỗi khởi tạo: " + error.message;
-    console.error("Init error:", error);
-  }
-}
-
-// Start initialization
-init();
-</script>
-
+        loadModels();
+    </script>
 </body>
 </html>
