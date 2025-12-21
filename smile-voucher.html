@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>Smile To Get Voucher 😄</title>
+
+<!-- Face API -->
+<script defer src="https://unpkg.com/face-api.js"></script>
+
+<style>
+  * {
+    box-sizing: border-box;
+    font-family: "Segoe UI", sans-serif;
+  }
+  body {
+    margin: 0;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: white;
+    padding: 24px;
+    border-radius: 20px;
+    width: 380px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+  p {
+    color: #666;
+    font-size: 14px;
+  }
+  video {
+    width: 100%;
+    border-radius: 12px;
+    margin-top: 12px;
+  }
+  .progress {
+    margin-top: 12px;
+    height: 14px;
+    background: #eee;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,#ff9a9e,#fad0c4);
+    transition: width 0.2s;
+  }
+  .status {
+    margin-top: 10px;
+    font-weight: bold;
+  }
+  .footer {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #aaa;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h1>😄 Cười thật tươi!</h1>
+  <p>Cười đủ mức để mở voucher nội bộ</p>
+
+  <video id="video" autoplay muted></video>
+
+  <div class="progress">
+    <div class="bar" id="bar"></div>
+  </div>
+
+  <div class="status" id="status">Đang chờ nụ cười...</div>
+  <div class="footer">Powered by AI</div>
+</div>
+
+<script>
+const video = document.getElementById("video");
+const statusText = document.getElementById("status");
+const bar = document.getElementById("bar");
+
+const VOUCHER_URL = "https://your-voucher-link.com";
+const SMILE_THRESHOLD = 0.75;
+let unlocked = false;
+
+async function loadModels() {
+  const URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
+  await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
+  await faceapi.nets.faceExpressionNet.loadFromUri(URL);
+}
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+}
+
+video.addEventListener("play", () => {
+  const loop = setInterval(async () => {
+    if (unlocked) return;
+
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceExpressions();
+
+    if (!result) {
+      statusText.innerText = "😶 Không thấy khuôn mặt";
+      bar.style.width = "0%";
+      return;
+    }
+
+    const smile = result.expressions.happy;
+    bar.style.width = Math.min(smile * 100, 100) + "%";
+    statusText.innerText = `Mức cười: ${(smile * 100).toFixed(0)}%`;
+
+    if (smile >= SMILE_THRESHOLD) {
+      unlocked = true;
+      statusText.innerText = "🎉 Thành công! Mở voucher...";
+      setTimeout(() => {
+        window.location.href = VOUCHER_URL;
+      }, 1200);
+    }
+  }, 300);
+});
+
+(async function init() {
+  await loadModels();
+  await startCamera();
+})();
+</script>
+
+</body>
+</html>
