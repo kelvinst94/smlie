@@ -5,7 +5,7 @@
 <title>Smile To Get Voucher 😄</title>
 
 <!-- Face API -->
-<script defer src="https://unpkg.com/face-api.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
   * {
@@ -95,12 +95,15 @@ let detectionLoop = null;
 async function loadModels() {
   try {
     const URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
-    await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-    await faceapi.nets.faceExpressionNet.loadFromUri(URL);
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+      faceapi.nets.faceExpressionNet.loadFromUri(URL)
+    ]);
     statusText.innerText = "✅ Models loaded. Bật camera...";
   } catch (error) {
     statusText.innerText = "❌ Lỗi tải models: " + error.message;
     console.error("Model loading error:", error);
+    throw error;
   }
 }
 
@@ -155,18 +158,24 @@ async function init() {
   
   // Wait for Face API to be available
   let attempts = 0;
-  while (typeof faceapi === "undefined" && attempts < 20) {
+  while (typeof faceapi === "undefined" && attempts < 50) {
     await new Promise(resolve => setTimeout(resolve, 100));
     attempts++;
   }
   
   if (typeof faceapi === "undefined") {
-    statusText.innerText = "❌ Lỗi: Face API không load";
+    statusText.innerText = "❌ Face API không load. Kiểm tra kết nối internet";
+    console.error("Face API still not available after waiting");
     return;
   }
   
-  await loadModels();
-  await startCamera();
+  try {
+    await loadModels();
+    await startCamera();
+  } catch (error) {
+    statusText.innerText = "❌ Lỗi khởi tạo: " + error.message;
+    console.error("Init error:", error);
+  }
 }
 
 // Start initialization
