@@ -90,50 +90,87 @@ const bar = document.getElementById("bar");
 const VOUCHER_URL = "https://your-voucher-link.com";
 const SMILE_THRESHOLD = 0.75;
 let unlocked = false;
+let detectionLoop = null;
 
 async function loadModels() {
-  const URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
-  await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-  await faceapi.nets.faceExpressionNet.loadFromUri(URL);
+  try {
+    const URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
+    await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(URL);
+    statusText.innerText = "✅ Models loaded. Bật camera...";
+  } catch (error) {
+    statusText.innerText = "❌ Lỗi tải models: " + error.message;
+    console.error("Model loading error:", error);
+  }
 }
 
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  video.srcObject = stream;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+  } catch (error) {
+    statusText.innerText = "❌ Lỗi camera: " + error.message;
+    console.error("Camera error:", error);
+  }
 }
 
 video.addEventListener("play", () => {
-  const loop = setInterval(async () => {
-    if (unlocked) return;
-
-    const result = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-      .withFaceExpressions();
-
-    if (!result) {
-      statusText.innerText = "😶 Không thấy khuôn mặt";
-      bar.style.width = "0%";
+  detectionLoop = setInterval(async () => {
+    if (unlocked) {
+      clearInterval(detectionLoop);
       return;
     }
 
-    const smile = result.expressions.happy;
-    bar.style.width = Math.min(smile * 100, 100) + "%";
-    statusText.innerText = `Mức cười: ${(smile * 100).toFixed(0)}%`;
+    try {
+      const result = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceExpressions();
 
-    if (smile >= SMILE_THRESHOLD) {
-      unlocked = true;
-      statusText.innerText = "🎉 Thành công! Mở voucher...";
-      setTimeout(() => {
-        window.location.href = VOUCHER_URL;
-      }, 1200);
+      if (!result) {
+        statusText.innerText = "😶 Không thấy khuôn mặt";
+        bar.style.width = "0%";
+        return;
+      }
+
+      const smile = result.expressions.happy;
+      bar.style.width = Math.min(smile * 100, 100) + "%";
+      statusText.innerText = `Mức cười: ${(smile * 100).toFixed(0)}%`;
+
+      if (smile >= SMILE_THRESHOLD) {
+        unlocked = true;
+        clearInterval(detectionLoop);
+        statusText.innerText = "🎉 Thành công! Mở voucher...";
+        setTimeout(() => {
+          window.location.href = VOUCHER_URL;
+        }, 1200);
+      }
+    } catch (error) {
+      console.error("Detection error:", error);
     }
   }, 300);
 });
 
-(async function init() {
+async function init() {
+  statusText.innerText = "⏳ Đang khởi tạo...";
+  
+  // Wait for Face API to be available
+  let attempts = 0;
+  while (typeof faceapi === "undefined" && attempts < 20) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+  
+  if (typeof faceapi === "undefined") {
+    statusText.innerText = "❌ Lỗi: Face API không load";
+    return;
+  }
+  
   await loadModels();
   await startCamera();
-})();
+}
+
+// Start initialization
+init();
 </script>
 
 </body>
