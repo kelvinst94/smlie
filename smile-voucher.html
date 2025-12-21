@@ -2,112 +2,107 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smile to Win | Nhận Voucher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smile Voucher</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
-        #video-container video { transform: scaleX(-1); } /* Hiệu ứng gương */
-        .progress-bar { transition: width 0.2s ease-out; }
+        video { transform: scaleX(-1); object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-yellow-100 to-orange-200 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
 
-    <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md text-center">
-        <h1 class="text-3xl font-extrabold text-orange-600 mb-2">SMILE & WIN! 🎁</h1>
-        <p class="text-gray-500 mb-6">Cười thật tươi để mở khóa Voucher nội bộ nhé</p>
-
-        <div id="video-container" class="relative rounded-2xl overflow-hidden bg-black aspect-video mb-6 border-4 border-orange-400 shadow-inner">
-            <video id="video" class="w-full h-full object-cover" autoplay muted playsinline></video>
-            <div id="loading-overlay" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
-                <span class="animate-pulse">Đang tải AI...</span>
+    <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-sm text-center">
+        <h1 class="text-2xl font-bold text-orange-500 mb-4">CƯỜI ĐỂ NHẬN QUÀ 🎁</h1>
+        
+        <div id="container" class="relative rounded-2xl overflow-hidden bg-black aspect-square mb-4 shadow-inner">
+            <video id="video" class="w-full h-full" autoplay muted playsinline webkit-playsinline></video>
+            <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 text-white p-4">
+                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-orange-500 mb-2"></div>
+                <p id="loader-text" class="text-sm">Đang tải dữ liệu AI...</p>
             </div>
         </div>
 
-        <div class="mb-4">
-            <div class="flex justify-between mb-1 text-sm font-medium text-orange-700">
-                <span>Độ tươi nụ cười</span>
-                <span id="score-text">0%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-4">
-                <div id="progress" class="bg-orange-500 h-4 rounded-full progress-bar" style="width: 0%"></div>
-            </div>
+        <div id="status" class="text-lg font-bold text-gray-600 mb-2 italic">Chờ một chút...</div>
+        
+        <div class="w-full bg-gray-200 rounded-full h-3 mb-6">
+            <div id="progress" class="bg-green-500 h-3 rounded-full transition-all duration-200" style="width: 0%"></div>
         </div>
-
-        <p id="status-message" class="text-lg font-semibold text-gray-700 h-8">Đang khởi động camera...</p>
+        
+        <button id="btn-retry" class="hidden px-4 py-2 bg-blue-500 text-white rounded-lg" onclick="location.reload()">Thử lại</button>
     </div>
 
     <script>
         const video = document.getElementById('video');
+        const loader = document.getElementById('loader');
+        const status = document.getElementById('status');
         const progress = document.getElementById('progress');
-        const scoreText = document.getElementById('score-text');
-        const statusMessage = document.getElementById('status-message');
-        const loadingOverlay = document.getElementById('loading-overlay');
+        const btnRetry = document.getElementById('btn-retry');
 
-        const VOUCHER_LINK = "https://your-voucher-link.com"; // THAY LINK CỦA BẠN TẠI ĐÂY
+        const VOUCHER_LINK = "https://google.com"; // Thay link của bạn
 
-        // Tải Model từ GitHub (đã nén để load nhanh)
-        async function loadModels() {
-            const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
-            startVideo();
+        async function init() {
+            try {
+                // 1. Tải Model
+                const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+                
+                document.getElementById('loader-text').innerText = "Đang xin quyền camera...";
+
+                // 2. Mở Camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 640 },
+                        height: { ideal: 640 }
+                    } 
+                });
+                
+                video.srcObject = stream;
+                
+                // Đảm bảo video bắt đầu chạy trên mobile
+                video.addEventListener('loadedmetadata', () => {
+                    video.play();
+                    loader.style.display = 'none';
+                    status.innerText = "Hãy cười thật tươi nào!";
+                    startDetection();
+                });
+
+            } catch (err) {
+                console.error(err);
+                loader.style.display = 'none';
+                btnRetry.classList.remove('hidden');
+                status.innerText = "Lỗi: " + (err.name === 'NotAllowedError' ? "Bạn đã từ chối quyền Camera" : "Không tìm thấy camera hoặc web không có HTTPS");
+            }
         }
 
-      async function startVideo() {
-    const constraints = {
-        video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: "user" // Ưu tiên camera trước
-        }
-    };
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
-        
-        // Quan trọng: Đảm bảo video thực sự phát
-        video.onloadedmetadata = () => {
-            video.play();
-            loadingOverlay.classList.add('hidden');
-            statusMessage.innerText = "Sẵn sàng! Cười lên nào 😊";
-            detectSmile();
-        };
-    } catch (err) {
-        console.error("Lỗi Camera: ", err);
-        statusMessage.innerText = "Không thể mở camera. Hãy kiểm tra quyền truy cập hoặc dùng HTTPS.";
-        alert("Lưu ý: Ứng dụng cần HTTPS và quyền truy cập Camera để hoạt động.");
-    }
-}
-
-        async function detectSmile() {
+        function startDetection() {
             setInterval(async () => {
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
                     .withFaceExpressions();
 
-                if (detections && detections.length > 0) {
-                    const happyScore = detections[0].expressions.happy;
-                    const percent = Math.round(happyScore * 100);
-
-                    progress.style.width = percent + "%";
-                    scoreText.innerText = percent + "%";
-
-                    if (happyScore > 0.85) {
-                        statusMessage.innerText = "TUYỆT VỜI! Đang lấy Voucher...";
-                        statusMessage.classList.add('text-green-600');
+                if (result) {
+                    const happy = result.expressions.happy;
+                    const score = Math.round(happy * 100);
+                    
+                    progress.style.width = score + "%";
+                    
+                    if (score > 80) {
+                        status.innerText = "Nụ cười tuyệt vời! 🎉";
+                        status.style.color = "#10b981";
                         setTimeout(() => {
                             window.location.href = VOUCHER_LINK;
-                        }, 1500);
-                    } else if (happyScore > 0.3) {
-                        statusMessage.innerText = "Tươi hơn chút nữa nào!";
+                        }, 800);
+                    } else if (score > 20) {
+                        status.innerText = "Cười thêm tí nữa...";
                     }
                 }
             }, 300);
         }
 
-        loadModels();
+        window.onload = init;
     </script>
 </body>
 </html>
-
