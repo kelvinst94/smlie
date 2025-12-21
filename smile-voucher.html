@@ -54,20 +54,32 @@
             startVideo();
         }
 
-        async function startVideo() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" } 
-                });
-                video.srcObject = stream;
-                loadingOverlay.classList.add('hidden');
-                statusMessage.innerText = "Sẵn sàng! Cười lên nào 😊";
-                detectSmile();
-            } catch (err) {
-                statusMessage.innerText = "Lỗi: Không thể truy cập camera";
-                console.error(err);
-            }
+      async function startVideo() {
+    const constraints = {
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: "user" // Ưu tiên camera trước
         }
+    };
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        
+        // Quan trọng: Đảm bảo video thực sự phát
+        video.onloadedmetadata = () => {
+            video.play();
+            loadingOverlay.classList.add('hidden');
+            statusMessage.innerText = "Sẵn sàng! Cười lên nào 😊";
+            detectSmile();
+        };
+    } catch (err) {
+        console.error("Lỗi Camera: ", err);
+        statusMessage.innerText = "Không thể mở camera. Hãy kiểm tra quyền truy cập hoặc dùng HTTPS.";
+        alert("Lưu ý: Ứng dụng cần HTTPS và quyền truy cập Camera để hoạt động.");
+    }
+}
 
         async function detectSmile() {
             setInterval(async () => {
@@ -98,3 +110,4 @@
     </script>
 </body>
 </html>
+
