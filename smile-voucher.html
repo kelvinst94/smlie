@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quà tặng đặc biệt dành cho chị Thúy Min</title>
+    <title>Quà tặng Giáng Sinh 🎁</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         video { transform: scaleX(-1); object-fit: cover; }
-        /* Hiệu ứng rung khi cười to */
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake {
             10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -18,221 +17,75 @@
         }
     </style>
 </head>
-<body class="bg-pink-50 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-gradient-to-br from-pink-100 to-red-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
 
-    <div id="main-card" class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-pink-200">
-        <h1 class="text-xl font-bold text-pink-600 mb-2">🎁 QUÀ TẶNG CHỊ THÚY MIN</h1>
-        <p class="text-sm text-gray-500 mb-4">Nhiệm vụ: Cười nhe răng & Cười thành tiếng!</p>
+    <div class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-white">
+        <h1 class="text-xl font-extrabold text-pink-600 mb-2">🎁 NHIỆM VỤ NHẬN QUÀ</h1>
+        <p class="text-xs text-gray-500 mb-4">Cười nhe răng (😬) + Cười ra tiếng (Ha ha!)</p>
         
-        <div id="container" class="relative rounded-2xl overflow-hidden bg-black aspect-square mb-4 shadow-inner border-2 border-gray-200">
-            <video id="video" class="w-full h-full" autoplay muted playsinline webkit-playsinline></video>
+        <div class="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] mb-4 shadow-inner">
+            <video id="video" class="w-full h-full object-cover" autoplay muted playsinline webkit-playsinline></video>
             
-            <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2 flex justify-around">
-                <span id="debug-smile">😐 Mặt lạnh</span>
-                <span id="debug-mouth">🤐 Mím môi</span>
-                <span id="debug-sound">🔇 Im lặng</span>
+            <canvas id="overlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+
+            <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-90 text-white p-4 z-20">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-pink-500 mb-3"></div>
+                <p id="loader-text" class="text-center text-xs">Đang tải AI...</p>
+                <div id="error-msg" class="hidden text-red-400 text-xs mt-2 border border-red-500 p-2 rounded"></div>
+                <button id="btn-skip" class="hidden mt-4 px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600" onclick="skipToGift()">
+                    Bỏ qua & Nhận quà luôn
+                </button>
             </div>
 
-            <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-90 text-white p-4 z-10">
-                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-pink-500 mb-3"></div>
-                <p id="loader-text" class="text-center text-sm animate-pulse">Đang tải trí tuệ nhân tạo...</p>
+            <div class="absolute bottom-2 left-2 right-2 bg-black bg-opacity-60 rounded-lg p-2 text-white text-[10px] flex justify-between z-10">
+                <span>Cười: <b id="d-smile" class="text-red-300">0%</b></span>
+                <span>Miệng: <b id="d-mouth" class="text-red-300">Đóng</b></span>
+                <span>Âm lượng: <b id="d-vol" class="text-red-300">0</b></span>
             </div>
         </div>
 
-        <div id="status" class="text-lg font-bold text-gray-700 mb-2 h-16 flex items-center justify-center">
+        <div id="status" class="text-base font-bold text-gray-700 mb-2 min-h-[1.5rem]">
             Đang khởi động...
         </div>
         
-        <div class="relative w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">
-            <div id="progress" class="bg-gradient-to-r from-pink-400 to-red-500 h-4 rounded-full transition-all duration-200" style="width: 0%"></div>
-            <p class="absolute inset-0 text-[10px] flex items-center justify-center text-white font-bold drop-shadow">MỨC ĐỘ VUI VẺ</p>
+        <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+            <div id="progress" class="bg-gradient-to-r from-pink-400 to-red-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
         
-        <button id="btn-start" class="hidden w-full py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 shadow-lg transition transform active:scale-95" onclick="startApp()">
-            BẮT ĐẦU THÔI 📸
+        <button id="btn-start" class="hidden w-full py-3 bg-pink-500 text-white rounded-xl font-bold shadow-lg active:scale-95" onclick="startApp()">
+            BẮT ĐẦU 📸
         </button>
     </div>
 
     <script>
-        const video = document.getElementById('video');
-        const loader = document.getElementById('loader');
-        const loaderText = document.getElementById('loader-text');
-        const status = document.getElementById('status');
-        const progress = document.getElementById('progress');
-        const btnStart = document.getElementById('btn-start');
-        const mainCard = document.getElementById('main-card');
-
-        // Debug elements
-        const dSmile = document.getElementById('debug-smile');
-        const dMouth = document.getElementById('debug-mouth');
-        const dSound = document.getElementById('debug-sound');
-
-        // CẤU HÌNH LIÊN KẾT VÀ ĐỘ KHÓ
         const VOUCHER_LINK = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWYxbWJnbzA4MG4xdzZ1aTl5ajkwZzRzcmE2a3cxamNxZWl2cXhxaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gNke2UrUTopOg/giphy.gif"; 
-        const THRESHOLD_SMILE = 0.8;      // Độ cười (0-1)
-        const THRESHOLD_MOUTH_OPEN = 0.05; // Tỷ lệ mở miệng (cao/rộng)
-        const THRESHOLD_VOLUME = 15;      // Độ lớn âm thanh (0-100)
+        
+        // CẤU HÌNH ĐỘ KHÓ
+        const CONFIG = {
+            smile: 0.7,      // 70% độ cười
+            mouth: 0.1,      // Độ mở miệng (tăng nếu khó, giảm nếu dễ)
+            volume: 15       // Độ ồn
+        };
 
-        let audioContext;
-        let analyser;
-        let microphone;
-        let isSuccess = false;
+        const els = {
+            video: document.getElementById('video'),
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text'),
+            errorMsg: document.getElementById('error-msg'),
+            btnSkip: document.getElementById('btn-skip'),
+            status: document.getElementById('status'),
+            progress: document.getElementById('progress'),
+            btnStart: document.getElementById('btn-start'),
+            dSmile: document.getElementById('d-smile'),
+            dMouth: document.getElementById('d-mouth'),
+            dVol: document.getElementById('d-vol')
+        };
 
-        // 1. Tải Models
+        let audioContext, analyser, microphone;
+        let isRunning = false;
+
+        // 1. Tải Model (Dùng link raw github ổn định hơn)
         async function loadModels() {
             try {
-                const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), // Cần cái này để check mở miệng
-                    faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
-                ]);
-                loaderText.innerText = "Đã tải xong! Nhấn nút bên dưới nhé 👇";
-                document.querySelector('.animate-spin').style.display = 'none';
-                btnStart.classList.remove('hidden');
-            } catch (err) {
-                loaderText.innerText = "Lỗi tải model: " + err;
-            }
-        }
-
-        // 2. Khởi động Camera & Micro
-        async function startApp() {
-            btnStart.classList.add('hidden');
-            loaderText.innerText = "Đang xin quyền Camera & Micro...";
-            
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" },
-                    audio: true 
-                });
-                
-                video.srcObject = stream;
-                setupAudioAnalysis(stream);
-
-                video.addEventListener('loadedmetadata', () => {
-                    video.play();
-                    loader.style.display = 'none';
-                    detectFrame();
-                });
-            } catch (err) {
-                alert("Lỗi: Bạn cần cho phép quyền Camera và Micro để chơi!");
-                console.error(err);
-            }
-        }
-
-        // 3. Thiết lập phân tích âm thanh
-        function setupAudioAnalysis(stream) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            microphone = audioContext.createMediaStreamSource(stream);
-            microphone.connect(analyser);
-            analyser.fftSize = 256;
-        }
-
-        function getVolume() {
-            if (!analyser) return 0;
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(dataArray);
-            
-            let sum = 0;
-            // Lấy trung bình cộng biên độ các tần số
-            for(let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-            }
-            return sum / dataArray.length;
-        }
-
-        // 4. Vòng lặp phát hiện
-        async function detectFrame() {
-            if (isSuccess) return;
-
-            // Detect mặt + điểm neo (landmarks) + biểu cảm
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-                .withFaceLandmarks()
-                .withFaceExpressions();
-
-            let smileScore = 0;
-            let isMouthOpen = false;
-            let currentVol = getVolume();
-
-            if (detection) {
-                // a. Check Cười
-                smileScore = detection.expressions.happy;
-
-                // b. Check Mở miệng (Nhe răng)
-                // Lấy điểm môi trên (62) và môi dưới (66)
-                const mouth = detection.landmarks.getMouth();
-                const upperLipBottom = mouth[14]; // điểm giữa môi trên trong
-                const lowerLipTop = mouth[18];    // điểm giữa môi dưới trong
-                
-                // Tính khoảng cách
-                const mouthOpening = Math.abs(upperLipBottom.y - lowerLipTop.y);
-                const faceHeight = detection.detection.box.height;
-                
-                // Tỷ lệ mở miệng so với khuôn mặt
-                const ratio = mouthOpening / faceHeight;
-                isMouthOpen = ratio > THRESHOLD_MOUTH_OPEN;
-
-                // Cập nhật UI Debug
-                dSmile.innerText = smileScore > THRESHOLD_SMILE ? "😆 Tươi" : "😐 Chưa tươi";
-                dMouth.innerText = isMouthOpen ? "😬 Nhe răng" : "🤐 Mím môi";
-            }
-
-            // Cập nhật UI Sound Debug
-            dSound.innerText = currentVol > THRESHOLD_VOLUME ? "🔊 Ồn ào" : "🔇 Im lặng";
-
-            // Xử lý Logic Game
-            updateGameStatus(smileScore, isMouthOpen, currentVol);
-
-            // Lặp lại nhanh nhất có thể
-            requestAnimationFrame(detectFrame);
-        }
-
-        function updateGameStatus(smile, mouthOpen, vol) {
-            let totalScore = 0;
-            let message = "";
-            let color = "bg-red-500";
-
-            // Logic tính điểm và hướng dẫn
-            if (smile < THRESHOLD_SMILE) {
-                message = "Chị Min cười tươi lên nào! 😁";
-                totalScore = smile * 50;
-            } else if (!mouthOpen) {
-                message = "Cười nhe răng ra chị ơi! 😬";
-                totalScore = 70;
-            } else if (vol < THRESHOLD_VOLUME) {
-                message = "Phải cười thành tiếng cơ! Ha ha ha! 🔊";
-                totalScore = 85;
-                mainCard.classList.remove('shake');
-            } else {
-                // THÀNH CÔNG
-                message = "TUYỆT VỜI !!! 🎉";
-                totalScore = 100;
-                color = "bg-green-500";
-                mainCard.classList.add('shake');
-                
-                if (!isSuccess) {
-                    isSuccess = true;
-                    status.innerText = message;
-                    status.className = "text-xl font-bold text-green-600 mb-2 animate-bounce";
-                    progress.style.width = "100%";
-                    progress.className = "bg-green-500 h-4 rounded-full";
-                    
-                    setTimeout(() => {
-                        alert("Chúc mừng chị Thúy Min! Đang chuyển đến quà...");
-                        window.location.href = VOUCHER_LINK;
-                    }, 1000);
-                    return;
-                }
-            }
-
-            status.innerText = message;
-            progress.style.width = totalScore + "%";
-        }
-
-        // Bắt đầu tải model ngay khi vào web
-        loadModels();
-
-    </script>
-</body>
-</html>
+                // Link weights trực tiếp từ Github
+                const MODEL
