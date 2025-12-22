@@ -140,23 +140,41 @@
 
         // 2. Tải AI Models
         async function loadAI() {
-            try {
-                const URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(URL), // Cần để đo miệng
-                    faceapi.nets.faceExpressionNet.loadFromUri(URL)
-                ]);
-                
-                clearTimeout(loadTimeout);
-                UI.statusText.innerText = "Sẵn sàng!";
-                UI.spinner.style.display = 'none';
-                UI.overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
-                UI.btnStart.classList.remove('hidden');
-                
-            } catch (err) {
-                showError("Không tải được AI. Kiểm tra kết nối mạng.", err);
+            // Try local ./models first, then fallback to CDN
+            const LOCAL = './models';
+            const FALLBACK = 'https://justadudewhohacks.github.io/face-api.js/models';
+            const attempts = [LOCAL, FALLBACK];
+
+            for (const URL of attempts) {
+                try {
+                    UI.statusText.innerText = `Đang tải mô hình từ: ${URL}`;
+                    console.log('Loading models from', URL);
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(URL), // Cần để đo miệng
+                        faceapi.nets.faceExpressionNet.loadFromUri(URL)
+                    ]);
+
+                    clearTimeout(loadTimeout);
+                    UI.statusText.innerText = "Sẵn sàng!";
+                    UI.spinner.style.display = 'none';
+                    UI.overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
+                    UI.btnStart.classList.remove('hidden');
+                    console.log('Models loaded from', URL);
+                    return;
+                } catch (err) {
+                    console.warn('Failed loading models from', URL, err && err.message);
+                    // try next
+                }
             }
+
+            // If we reach here, all attempts failed
+            showError("Không tải được AI từ cả thư mục local và CDN.", new Error('Models fetch failed'));
+            // Provide quick instructions for the user
+            UI.errorMsg.innerHTML = `Không tải model. Hãy tải thư mục <code>models/</code> vào cùng thư mục với file này.<br>
+            1) Tải từ: <a href="https://github.com/justadudewhohacks/face-api.js-models" target="_blank" class="text-pink-300 underline">face-api.js-models</a><br>
+            2) Giải nén thành folder <code>models</code> và phục vụ qua HTTP (không mở bằng file://).`;
+            UI.errorArea.classList.remove('hidden');
         }
 
         // 3. Khởi động Camera & Mic
