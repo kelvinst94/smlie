@@ -91,19 +91,229 @@
                     
                     if (score > 80) {
                         status.innerText = "Nụ cười tuyệt vời! Chúc chị Min Giáng Sinh vui vẻ 🎉";
-                        status.style.color = "#10b981";
-                        setTimeout(() => {
-                            window.location.href = VOUCHER_LINK;
-                        }, 800);
-                    } else if (score > 20) {
-                        status.innerText = "Cười chưa đủ đô, nhe răng ra nào haha..";
-                    }
-                }
-            }, 300);
-        }
+                        <script>
+                        const video = document.getElementById("video");
+                        const statusText = document.getElementById("status");
+                        const bar = document.getElementById("bar");
 
-        window.onload = init;
-    </script>
-</body>
-</html>
+                        const VOUCHER_URL = "https://your-voucher-link.com";
+                        const SMILE_THRESHOLD = 0.75; // expression happy
+                        const MOUTH_OPEN_THRESHOLD = 0.22; // normalized mouth-opening relative to face height
+                        const TEETH_PCT_THRESHOLD = 0.04; // percent of bright pixels inside mouth to consider "teeth"
+                        const AUDIO_RMS_THRESHOLD = 0.02; // RMS threshold for audible laugh
 
+                        let unlocked = false;
+                        let detectionLoop = null;
+
+                        // Audio objects
+                        let audioContext = null;
+                        let analyser = null;
+                        let audioBuf = null;
+                        let lastLoudAt = 0;
+
+                        async function loadModels() {
+                            try {
+                                const URLs = [
+                                    "https://cdn.jsdelivr.net/npm/face-api.js/dist/weights",
+                                    "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/weights",
+                                    "https://unpkg.com/face-api.js@0.22.2/dist/weights"
+                                ];
+
+                                let loaded = false;
+                                let lastError = null;
+
+                                for (const URL of URLs) {
+                                    try {
+                                        console.log("Trying to load models from:", URL);
+                                        await Promise.all([
+                                            faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+                                            faceapi.nets.faceExpressionNet.loadFromUri(URL),
+                                            faceapi.nets.faceLandmark68Net.loadFromUri(URL)
+                                        ]);
+                                        loaded = true;
+                                        console.log("✅ Models loaded from:", URL);
+                                        break;
+                                    } catch (err) {
+                                        lastError = err;
+                                        console.warn("Failed to load from", URL, err && err.message);
+                                    }
+                                }
+
+                                if (!loaded) throw lastError || new Error("Failed to load models from all CDNs");
+                                statusText.innerText = "✅ Models loaded. Bật camera...";
+                            } catch (error) {
+                                statusText.innerText = "❌ Lỗi tải models: " + (error && error.message);
+                                console.error("Model loading error:", error);
+                                throw error;
+                            }
+                        }
+
+                        async function startCamera() {
+                            try {
+                                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+                                video.srcObject = stream;
+                                // setup audio analyser
+                                try {
+                                    setupAudio(stream);
+                                } catch (e) {
+                                    console.warn('Audio setup failed', e);
+                                }
+                            } catch (error) {
+                                statusText.innerText = "❌ Lỗi camera: " + error.message;
+                                console.error("Camera error:", error);
+                                throw error;
+                            }
+                        }
+
+                        function setupAudio(stream) {
+                            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            const source = audioContext.createMediaStreamSource(stream);
+                            analyser = audioContext.createAnalyser();
+                            analyser.fftSize = 1024;
+                            source.connect(analyser);
+                            audioBuf = new Uint8Array(analyser.fftSize);
+
+                            function pollAudio() {
+                                analyser.getByteTimeDomainData(audioBuf);
+                                // compute RMS (normalized 0..1)
+                                let sum = 0;
+                                for (let i = 0; i < audioBuf.length; i++) {
+                                    const v = (audioBuf[i] - 128) / 128;
+                                    sum += v * v;
+                                }
+                                const rms = Math.sqrt(sum / audioBuf.length);
+                                if (rms > AUDIO_RMS_THRESHOLD) {
+                                    lastLoudAt = Date.now();
+                                }
+                                requestAnimationFrame(pollAudio);
+                            }
+                            pollAudio();
+                        }
+
+                        function getMouthBox(mouthPoints) {
+                            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                            mouthPoints.forEach(p => {
+                                if (p.x < minX) minX = p.x;
+                                if (p.y < minY) minY = p.y;
+                                if (p.x > maxX) maxX = p.x;
+                                if (p.y > maxY) maxY = p.y;
+                            });
+                            return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+                        }
+
+                        function computeMouthOpenNormalized(mouthPoints, faceBoxHeight) {
+                            // mouth height = maxY - minY among mouth points
+                            let minY = Infinity, maxY = -Infinity;
+                            mouthPoints.forEach(p => {
+                                if (p.y < minY) minY = p.y;
+                                if (p.y > maxY) maxY = p.y;
+                            });
+                            const mouthH = Math.max(1, maxY - minY);
+                            return mouthH / faceBoxHeight;
+                        }
+
+                        async function detectTeethPercent(mouthBox) {
+                            // create canvas sized to mouth region
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const w = Math.max(2, Math.round(mouthBox.width));
+                            const h = Math.max(2, Math.round(mouthBox.height));
+                            canvas.width = w;
+                            canvas.height = h;
+                            try {
+                                ctx.drawImage(video, mouthBox.x, mouthBox.y, mouthBox.width, mouthBox.height, 0, 0, w, h);
+                            } catch (e) {
+                                return 0;
+                            }
+                            const data = ctx.getImageData(0, 0, w, h).data;
+                            let bright = 0, total = 0;
+                            for (let i = 0; i < data.length; i += 4) {
+                                const r = data[i], g = data[i+1], b = data[i+2];
+                                const lum = (r + g + b) / 3;
+                                // ignore very dark pixels (inside mouth) and very small region noise
+                                if (lum > 200) bright++;
+                                total++;
+                            }
+                            return total > 0 ? bright / total : 0;
+                        }
+
+                        video.addEventListener("play", () => {
+                            detectionLoop = setInterval(async () => {
+                                if (unlocked) {
+                                    clearInterval(detectionLoop);
+                                    return;
+                                }
+
+                                try {
+                                    const detection = await faceapi
+                                        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                                        .withFaceLandmarks()
+                                        .withFaceExpressions();
+
+                                    if (!detection) {
+                                        statusText.innerText = "😶 Không thấy khuôn mặt";
+                                        bar.style.width = "0%";
+                                        return;
+                                    }
+
+                                    const smile = detection.expressions.happy || 0;
+                                    const faceBox = detection.detection.box;
+                                    const landmarks = detection.landmarks;
+                                    const mouthPoints = landmarks.getMouth();
+
+                                    const mouthOpenNorm = computeMouthOpenNormalized(mouthPoints, faceBox.height);
+                                    const mouthBox = getMouthBox(mouthPoints);
+                                    const teethPct = await detectTeethPercent(mouthBox);
+                                    const audioLoud = (Date.now() - (lastLoudAt || 0)) < 1600; // heard loud recently
+
+                                    bar.style.width = Math.min(smile * 100, 100) + "%";
+
+                                    // Build status
+                                    const checks = [];
+                                    checks.push(`Cười: ${(smile*100).toFixed(0)}%`);
+                                    checks.push(`Mở miệng: ${(mouthOpenNorm*100).toFixed(0)}%`);
+                                    checks.push(`Nhe răng: ${(teethPct*100).toFixed(1)}%`);
+                                    checks.push(`Cười to: ${audioLoud ? 'Có' : 'Không'}`);
+                                    statusText.innerText = checks.join(' — ');
+
+                                    const passSmile = smile >= SMILE_THRESHOLD;
+                                    const passOpen = mouthOpenNorm >= MOUTH_OPEN_THRESHOLD;
+                                    const passTeeth = teethPct >= TEETH_PCT_THRESHOLD;
+                                    const passAudio = audioLoud;
+
+                                    if (passSmile && passOpen && passTeeth && passAudio) {
+                                        unlocked = true;
+                                        clearInterval(detectionLoop);
+                                        statusText.innerText = "🎉 Thành công! Mở voucher...";
+                                        setTimeout(() => { window.location.href = VOUCHER_URL; }, 900);
+                                    }
+                                } catch (err) {
+                                    console.error('Detection error', err);
+                                }
+                            }, 300);
+                        });
+
+                        async function init() {
+                            statusText.innerText = "⏳ Đang khởi tạo...";
+                            let attempts = 0;
+                            while (typeof faceapi === "undefined" && attempts < 50) {
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                                attempts++;
+                            }
+                            if (typeof faceapi === "undefined") {
+                                statusText.innerText = "❌ Face API không load. Kiểm tra kết nối internet";
+                                console.error("Face API still not available after waiting");
+                                return;
+                            }
+                            try {
+                                await loadModels();
+                                await startCamera();
+                            } catch (error) {
+                                statusText.innerText = "❌ Lỗi khởi tạo: " + (error && error.message);
+                                console.error("Init error:", error);
+                            }
+                        }
+
+                        // Start initialization
+                        init();
+                        </script>
