@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quà tặng Giáng Sinh 🎁</title>
+    <title>Quà tặng đặc biệt 🎁</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
+        /* Lật ngược camera cho giống gương */
         video { transform: scaleX(-1); object-fit: cover; }
+        
+        /* Hiệu ứng rung khi cười to */
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake {
             10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -15,77 +19,281 @@
             30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
+        
+        /* Thanh tiến độ 7 màu */
+        .rainbow-bar {
+            background: linear-gradient(90deg, #ff0000, #ffa500, #ffff00, #008000, #0000ff, #4b0082, #ee82ee);
+            background-size: 200% 200%;
+            animation: rainbow 2s ease infinite;
+        }
+        @keyframes rainbow { 
+            0%{background-position:0% 50%}
+            50%{background-position:100% 50%}
+            100%{background-position:0% 50%}
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-pink-100 to-red-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+<body class="bg-pink-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none">
 
-    <div class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-white">
-        <h1 class="text-xl font-extrabold text-pink-600 mb-2">🎁 NHIỆM VỤ NHẬN QUÀ</h1>
-        <p class="text-xs text-gray-500 mb-4">Cười nhe răng (😬) + Cười ra tiếng (Ha ha!)</p>
+    <div id="main-card" class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-white relative">
         
-        <div class="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] mb-4 shadow-inner">
-            <video id="video" class="w-full h-full object-cover" autoplay muted playsinline webkit-playsinline></video>
+        <div class="mb-4">
+            <h1 class="text-2xl font-black text-pink-600 uppercase tracking-tighter">NHIỆM VỤ NHẬN QUÀ</h1>
+            <p class="text-sm text-gray-500">Hãy cười nhe răng & cười thành tiếng!</p>
+        </div>
+
+        <div class="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] mb-4 shadow-inner ring-4 ring-pink-100">
+            <video id="video" class="w-full h-full" autoplay muted playsinline webkit-playsinline></video>
             
-            <canvas id="overlay" class="absolute top-0 left-0 w-full h-full"></canvas>
-
-            <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-90 text-white p-4 z-20">
-                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-pink-500 mb-3"></div>
-                <p id="loader-text" class="text-center text-xs">Đang tải AI...</p>
-                <div id="error-msg" class="hidden text-red-400 text-xs mt-2 border border-red-500 p-2 rounded"></div>
-                <button id="btn-skip" class="hidden mt-4 px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600" onclick="skipToGift()">
-                    Bỏ qua & Nhận quà luôn
-                </button>
+            <div class="absolute top-2 left-2 right-2 flex justify-between text-[10px] font-mono text-white bg-black/50 p-2 rounded backdrop-blur-sm z-10">
+                <div class="flex flex-col items-center">
+                    <span id="txt-smile">😐 0%</span>
+                    <span class="text-gray-400">ĐỘ TƯƠI</span>
+                </div>
+                <div class="flex flex-col items-center border-x border-gray-600 px-2">
+                    <span id="txt-mouth">🤐 Đóng</span>
+                    <span class="text-gray-400">MIỆNG</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span id="txt-vol">🔇 0</span>
+                    <span class="text-gray-400">ÂM LƯỢNG</span>
+                </div>
             </div>
 
-            <div class="absolute bottom-2 left-2 right-2 bg-black bg-opacity-60 rounded-lg p-2 text-white text-[10px] flex justify-between z-10">
-                <span>Cười: <b id="d-smile" class="text-red-300">0%</b></span>
-                <span>Miệng: <b id="d-mouth" class="text-red-300">Đóng</b></span>
-                <span>Âm lượng: <b id="d-vol" class="text-red-300">0</b></span>
+            <div id="overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-white z-20 transition-opacity duration-500">
+                <div id="spinner" class="animate-spin rounded-full h-10 w-10 border-4 border-pink-500 border-t-transparent mb-4"></div>
+                <p id="status-text" class="text-sm font-medium animate-pulse">Đang kết nối AI...</p>
+                
+                <div id="error-area" class="hidden flex flex-col items-center mt-4 w-3/4">
+                    <p id="error-msg" class="text-xs text-red-400 text-center mb-3 border border-red-500/50 p-2 rounded bg-red-900/20">Lỗi không xác định</p>
+                    <button onclick="window.location.href = VOUCHER_LINK" class="bg-white text-black px-4 py-2 rounded-full text-xs font-bold hover:bg-gray-200">
+                        🎁 Bỏ qua & Nhận quà luôn
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div id="status" class="text-base font-bold text-gray-700 mb-2 min-h-[1.5rem]">
-            Đang khởi động...
+        <div class="mb-2 h-8 flex items-center justify-center">
+            <span id="game-msg" class="text-lg font-bold text-gray-700">Đang chuẩn bị...</span>
         </div>
         
-        <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
-            <div id="progress" class="bg-gradient-to-r from-pink-400 to-red-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+        <div class="w-full bg-gray-100 rounded-full h-4 mb-5 overflow-hidden ring-1 ring-gray-200">
+            <div id="progress-bar" class="bg-pink-500 h-full w-0 transition-all duration-300 ease-out"></div>
         </div>
-        
-        <button id="btn-start" class="hidden w-full py-3 bg-pink-500 text-white rounded-xl font-bold shadow-lg active:scale-95" onclick="startApp()">
-            BẮT ĐẦU 📸
+
+        <button id="btn-start" class="hidden w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold shadow-lg shadow-pink-500/30 active:scale-95 transition-transform" onclick="initApp()">
+            <i class="fas fa-camera mr-2"></i> BẮT ĐẦU CHƠI
         </button>
     </div>
 
     <script>
+        // ================= CẤU HÌNH =================
         const VOUCHER_LINK = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWYxbWJnbzA4MG4xdzZ1aTl5ajkwZzRzcmE2a3cxamNxZWl2cXhxaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gNke2UrUTopOg/giphy.gif"; 
         
-        // CẤU HÌNH ĐỘ KHÓ
-        const CONFIG = {
-            smile: 0.7,      // 70% độ cười
-            mouth: 0.1,      // Độ mở miệng (tăng nếu khó, giảm nếu dễ)
-            volume: 15       // Độ ồn
+        // Độ khó (Chỉnh ở đây)
+        const THRESHOLD = {
+            smile: 0.7,      // Cần cười 70%
+            mouth: 0.15,     // Độ mở miệng (0.1 là vừa, 0.2 là há to)
+            volume: 20       // Độ lớn âm thanh
         };
+        // ============================================
 
-        const els = {
+        const UI = {
             video: document.getElementById('video'),
-            loader: document.getElementById('loader'),
-            loaderText: document.getElementById('loader-text'),
+            overlay: document.getElementById('overlay'),
+            spinner: document.getElementById('spinner'),
+            statusText: document.getElementById('status-text'),
+            errorArea: document.getElementById('error-area'),
             errorMsg: document.getElementById('error-msg'),
-            btnSkip: document.getElementById('btn-skip'),
-            status: document.getElementById('status'),
-            progress: document.getElementById('progress'),
             btnStart: document.getElementById('btn-start'),
-            dSmile: document.getElementById('d-smile'),
-            dMouth: document.getElementById('d-mouth'),
-            dVol: document.getElementById('d-vol')
+            gameMsg: document.getElementById('game-msg'),
+            progressBar: document.getElementById('progress-bar'),
+            txtSmile: document.getElementById('txt-smile'),
+            txtMouth: document.getElementById('txt-mouth'),
+            txtVol: document.getElementById('txt-vol'),
+            card: document.getElementById('main-card')
         };
 
-        let audioContext, analyser, microphone;
+        let audioCtx, analyser, mic;
         let isRunning = false;
+        let loadTimeout;
 
-        // 1. Tải Model (Dùng link raw github ổn định hơn)
-        async function loadModels() {
+        // 1. Kiểm tra môi trường chạy (Quan trọng!)
+        window.onload = async () => {
+            if (window.location.protocol === 'file:') {
+                showError("LỖI NGHIÊM TRỌNG: Bạn không được mở trực tiếp file HTML.<br>Hãy upload lên web hoặc dùng Live Server.");
+                return;
+            }
+
+            // Hẹn giờ: Nếu 8 giây mà chưa tải xong AI thì hiện nút Bỏ qua
+            loadTimeout = setTimeout(() => {
+                if(UI.btnStart.classList.contains('hidden')) {
+                    UI.errorArea.classList.remove('hidden');
+                    UI.errorMsg.innerText = "Mạng chậm hoặc máy không hỗ trợ AI.";
+                    UI.statusText.innerText = "Có sự cố...";
+                    UI.spinner.style.display = 'none';
+                }
+            }, 8000);
+
+            await loadAI();
+        };
+
+        // 2. Tải AI Models
+        async function loadAI() {
             try {
-                // Link weights trực tiếp từ Github
-                const MODEL
+                const URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(URL), // Cần để đo miệng
+                    faceapi.nets.faceExpressionNet.loadFromUri(URL)
+                ]);
+                
+                clearTimeout(loadTimeout);
+                UI.statusText.innerText = "Sẵn sàng!";
+                UI.spinner.style.display = 'none';
+                UI.overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
+                UI.btnStart.classList.remove('hidden');
+                
+            } catch (err) {
+                showError("Không tải được AI. Kiểm tra kết nối mạng.", err);
+            }
+        }
+
+        // 3. Khởi động Camera & Mic
+        async function initApp() {
+            UI.btnStart.classList.add('hidden');
+            UI.statusText.innerText = "Đang xin quyền...";
+            UI.spinner.style.display = 'block';
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: {ideal: 640}, height: {ideal: 480} }, 
+                    audio: true 
+                });
+
+                UI.video.srcObject = stream;
+                setupAudio(stream);
+
+                UI.video.onloadedmetadata = () => {
+                    UI.video.play();
+                    UI.overlay.style.display = 'none'; // Ẩn màn hình chờ
+                    isRunning = true;
+                    loop();
+                };
+            } catch (err) {
+                showError("Bạn đã chặn Camera/Mic hoặc thiết bị không hỗ trợ.", err);
+            }
+        }
+
+        // 4. Thiết lập Âm thanh
+        function setupAudio(stream) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            mic = audioCtx.createMediaStreamSource(stream);
+            mic.connect(analyser);
+            analyser.fftSize = 256;
+        }
+
+        function getVolume() {
+            if (!analyser) return 0;
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(data);
+            return data.reduce((a, b) => a + b) / data.length;
+        }
+
+        // 5. Vòng lặp xử lý chính
+        async function loop() {
+            if (!isRunning) return;
+
+            // Nhận diện khuôn mặt
+            const detection = await faceapi.detectSingleFace(UI.video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceExpressions();
+
+            let smile = 0, mouthOpenRatio = 0, vol = getVolume();
+            let isMouthOpen = false;
+
+            if (detection) {
+                // a. Cười
+                smile = detection.expressions.happy;
+
+                // b. Mở miệng (Tính khoảng cách môi trên - môi dưới)
+                const mouth = detection.landmarks.getMouth();
+                // Điểm 14 (môi trên dưới) và 18 (môi dưới trên) của inner lips
+                const innerLipHeight = Math.abs(mouth[14].y - mouth[18].y);
+                const faceHeight = detection.detection.box.height;
+                
+                mouthOpenRatio = innerLipHeight / faceHeight;
+                isMouthOpen = mouthOpenRatio > THRESHOLD.mouth;
+
+                // Cập nhật Debug
+                UI.txtSmile.innerText = isMouthOpen ? "😆 " + Math.round(smile*100) + "%" : "😐 " + Math.round(smile*100) + "%";
+                UI.txtSmile.className = smile > THRESHOLD.smile ? "text-green-400 font-bold" : "text-white";
+                
+                UI.txtMouth.innerText = isMouthOpen ? "😬 Mở" : "🤐 Đóng";
+                UI.txtMouth.className = isMouthOpen ? "text-green-400 font-bold" : "text-white";
+            }
+
+            UI.txtVol.innerText = vol > THRESHOLD.volume ? "🔊 " + Math.round(vol) : "🔇 " + Math.round(vol);
+            UI.txtVol.className = vol > THRESHOLD.volume ? "text-green-400 font-bold" : "text-white";
+
+            // --- LOGIC GAME ---
+            updateGame(smile, isMouthOpen, vol);
+
+            requestAnimationFrame(loop);
+        }
+
+        function updateGame(smile, isMouthOpen, vol) {
+            let score = 0;
+            let msg = "";
+
+            if (smile < THRESHOLD.smile) {
+                msg = "Hãy cười thật tươi nào! 😁";
+                score = smile * 40;
+            } else if (!isMouthOpen) {
+                msg = "Cười nhe răng ra (Mở miệng)! 😬";
+                score = 65;
+            } else if (vol < THRESHOLD.volume) {
+                msg = "Cười thành tiếng đi: HA HA HA! 🔊";
+                score = 85;
+                UI.card.classList.remove("shake");
+            } else {
+                // WIN
+                msg = "TUYỆT VỜI !!! 🎉";
+                score = 100;
+                finish();
+                return;
+            }
+
+            UI.gameMsg.innerText = msg;
+            UI.progressBar.style.width = score + "%";
+        }
+
+        let finished = false;
+        function finish() {
+            if (finished) return;
+            finished = true;
+            isRunning = false;
+            
+            UI.gameMsg.innerText = "CHÚC MỪNG GIÁNG SINH! 🎁";
+            UI.gameMsg.className = "text-xl font-bold text-pink-600 animate-bounce";
+            
+            UI.progressBar.className = "h-full w-full rounded-full rainbow-bar";
+            UI.card.classList.add("shake");
+
+            setTimeout(() => {
+                window.location.href = VOUCHER_LINK;
+            }, 1500);
+        }
+
+        function showError(msg, err) {
+            console.error(err);
+            UI.overlay.style.display = 'flex';
+            UI.spinner.style.display = 'none';
+            UI.statusText.innerText = "Đã xảy ra lỗi";
+            UI.errorArea.classList.remove('hidden');
+            UI.errorMsg.innerHTML = msg;
+        }
+    </script>
+</body>
+</html>
