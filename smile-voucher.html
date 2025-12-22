@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smile Voucher</title>
+    <title>Quà tặng đặc biệt dành cho chị Thúy Min</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
@@ -14,17 +14,17 @@
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
 
     <div class="bg-white p-6 rounded-3xl shadow-xl w-full max-w-sm text-center">
-        <h1 class="text-2xl font-bold text-orange-500 mb-4">CƯỜI ĐỂ NHẬN QUÀ 🎁</h1>
+        <h1 class="text-2xl font-bold text-orange-500 mb-4">CHỊ THÚY MIN HÃY CƯỜI ĐỂ NHẬN QUÀ NHÁ🎁</h1>
         
         <div id="container" class="relative rounded-2xl overflow-hidden bg-black aspect-square mb-4 shadow-inner">
             <video id="video" class="w-full h-full" autoplay muted playsinline webkit-playsinline></video>
             <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 text-white p-4">
                 <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-orange-500 mb-2"></div>
-                <p id="loader-text" class="text-sm">Đang tải dữ liệu AI...</p>
+                <p id="loader-text" class="text-sm">Chị Min chờ xíu nhé...</p>
             </div>
         </div>
 
-        <div id="status" class="text-lg font-bold text-gray-600 mb-2 italic">Chờ một chút...</div>
+        <div id="status" class="text-lg font-bold text-gray-600 mb-2 italic">Chị Min chờ xíu nhé...</div>
         
         <div class="w-full bg-gray-200 rounded-full h-3 mb-6">
             <div id="progress" class="bg-green-500 h-3 rounded-full transition-all duration-200" style="width: 0%"></div>
@@ -40,7 +40,7 @@
         const progress = document.getElementById('progress');
         const btnRetry = document.getElementById('btn-retry');
 
-        const VOUCHER_LINK = "https://google.com"; // Thay link của bạn
+        const VOUCHER_LINK = "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWYxbWJnbzA4MG4xdzZ1aTl5ajkwZzRzcmE2a3cxamNxZWl2cXhxaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gNke2UrUTopOg/giphy.gif"; // Thay link của bạn
 
         async function init() {
             try {
@@ -49,7 +49,7 @@
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
                 
-                document.getElementById('loader-text').innerText = "Đang xin quyền camera...";
+                document.getElementById('loader-text').innerText = "Cho em quyền camera nào...";
 
                 // 2. Mở Camera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -66,7 +66,7 @@
                 video.addEventListener('loadedmetadata', () => {
                     video.play();
                     loader.style.display = 'none';
-                    status.innerText = "Hãy cười thật tươi nào!";
+                    status.innerText = "Cười lên chị Min ơiiiii!";
                     startDetection();
                 });
 
@@ -90,13 +90,13 @@
                     progress.style.width = score + "%";
                     
                     if (score > 80) {
-                        status.innerText = "Nụ cười tuyệt vời! 🎉";
+                        status.innerText = "Nụ cười tuyệt vời! Chúc chị Min Giáng Sinh vui vẻ 🎉";
                         status.style.color = "#10b981";
                         setTimeout(() => {
                             window.location.href = VOUCHER_LINK;
                         }, 800);
                     } else if (score > 20) {
-                        status.innerText = "Cười thêm tí nữa...";
+                        status.innerText = "Cười chưa đủ đô, nhe răng ra nào haha..";
                     }
                 }
             }, 300);
@@ -106,3 +106,4 @@
     </script>
 </body>
 </html>
+
