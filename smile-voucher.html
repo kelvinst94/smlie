@@ -7,11 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        /* Lật ngược camera cho giống gương */
         video { transform: scaleX(-1); object-fit: cover; }
-        
-        /* Hiệu ứng rung khi cười to */
+
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake {
             10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -19,8 +18,7 @@
             30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
-        
-        /* Thanh tiến độ 7 màu */
+
         .rainbow-bar {
             background: linear-gradient(90deg, #ff0000, #ffa500, #ffff00, #008000, #0000ff, #4b0082, #ee82ee);
             background-size: 200% 200%;
@@ -31,20 +29,72 @@
             50%{background-position:100% 50%}
             100%{background-position:0% 50%}
         }
+
+        .progress-glow {
+            box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899;
+            animation: pulse-glow 1s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px #ec4899; }
+            50% { box-shadow: 0 0 30px #ec4899, 0 0 50px #ec4899; }
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
+        }
+        .floating-emoji {
+            position: fixed;
+            animation: float-up 2s ease-out forwards;
+            font-size: 2rem;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        .sparkle {
+            animation: sparkle 0.6s ease-in-out infinite;
+        }
+
+        .combo-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 50;
+            transform: scale(0);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .combo-display.show {
+            transform: scale(1);
+        }
     </style>
 </head>
 <body class="bg-pink-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none">
 
-    <div id="main-card" class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-white relative">
-        
+    <div id="combo-counter" class="combo-display">
+        <i class="fas fa-fire"></i> <span id="combo-num">0</span>x COMBO!
+    </div>
+
+    <div id="main-card" class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm text-center border-4 border-white relative transition-all duration-300">
+
         <div class="mb-4">
             <h1 class="text-2xl font-black text-pink-600 uppercase tracking-tighter">NHIỆM VỤ NHẬN QUÀ</h1>
-            <p class="text-sm text-gray-500">Chị Min hãy cười thật vui sướng để nhận được quà nhá 😐 </p>
+            <p class="text-sm text-gray-500">Chị Min hãy cười thật vui sướng để nhận được quà nhá 🎁</p>
         </div>
 
         <div class="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] mb-4 shadow-inner ring-4 ring-pink-100">
             <video id="video" class="w-full h-full" autoplay muted playsinline webkit-playsinline></video>
-            
+
             <div class="absolute top-2 left-2 right-2 flex justify-between text-[10px] font-mono text-white bg-black/50 p-2 rounded backdrop-blur-sm z-10">
                 <div class="flex flex-col items-center">
                     <span id="txt-smile">😐 0%</span>
@@ -63,7 +113,7 @@
             <div id="overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-white z-20 transition-opacity duration-500">
                 <div id="spinner" class="animate-spin rounded-full h-10 w-10 border-4 border-pink-500 border-t-transparent mb-4"></div>
                 <p id="status-text" class="text-sm font-medium animate-pulse">Đang kết nối AI...</p>
-                
+
                 <div id="error-area" class="hidden flex flex-col items-center mt-4 w-3/4">
                     <p id="error-msg" class="text-xs text-red-400 text-center mb-3 border border-red-500/50 p-2 rounded bg-red-900/20">Lỗi không xác định</p>
                     <button onclick="window.location.href = VOUCHER_LINK" class="bg-white text-black px-4 py-2 rounded-full text-xs font-bold hover:bg-gray-200">
@@ -76,7 +126,7 @@
         <div class="mb-2 h-8 flex items-center justify-center">
             <span id="game-msg" class="text-lg font-bold text-gray-700">Đang chuẩn bị...</span>
         </div>
-        
+
         <div class="w-full bg-gray-100 rounded-full h-4 mb-5 overflow-hidden ring-1 ring-gray-200">
             <div id="progress-bar" class="bg-pink-500 h-full w-0 transition-all duration-300 ease-out"></div>
         </div>
@@ -87,16 +137,37 @@
     </div>
 
     <script>
-        // ================= CẤU HÌNH =================
         const VOUCHER_LINK = "https://cdn.pixabay.com/animation/2024/10/16/09/27/09-27-15-148_512.gif"; 
-        
-        // Độ khó (Chỉnh ở đây)
+
         const THRESHOLD = {
-            smile: 0.8,      // Cần cười 70%
-            mouth: 0.15,     // Độ mở miệng (0.1 là vừa, 0.2 là há to)
-            volume: 20       // Độ lớn âm thanh
+            smile: 0.7,
+            mouth: 0.15,
+            volume: 20
         };
-        // ============================================
+
+        const MESSAGES = {
+            needSmile: [
+                "Cười lên nào chị Min ơi! 😄",
+                "Tết đến rồi, cười đi chị! 🎊",
+                "Nụ cười đâu rồi? 😁",
+                "Cười thật tươi cho anh xem nào! ✨",
+                "Hãy cười như được trúng xổ số! 🎰"
+            ],
+            needMouth: [
+                "Há miệng ra, đừng ngại! 😬",
+                "Nhe răng đi chị, anh không cắn đâu! 😆",
+                "Cười toe toét lên nào! 🦷",
+                "Răng đẹp vậy mà không khoe à! 😁",
+                "Mở miệng ra như đang hát Karaoke! 🎤"
+            ],
+            needVolume: [
+                "Cười thành tiếng đi: HA HA HA! 🔊",
+                "To hơn nữa! Không ai cấm mà! 📢",
+                "Tiếng cười đâu rồi? 🎤",
+                "Cười thoải mái đi chị ơi! 😂",
+                "Như vậy mới vui chứ! Cười to lên! 🎺"
+            ]
+        };
 
         const UI = {
             video: document.getElementById('video'),
@@ -111,21 +182,28 @@
             txtSmile: document.getElementById('txt-smile'),
             txtMouth: document.getElementById('txt-mouth'),
             txtVol: document.getElementById('txt-vol'),
-            card: document.getElementById('main-card')
+            card: document.getElementById('main-card'),
+            comboCounter: document.getElementById('combo-counter'),
+            comboNum: document.getElementById('combo-num')
         };
 
         let audioCtx, analyser, mic;
         let isRunning = false;
         let loadTimeout;
+        let comboCount = 0;
+        let comboTimer = null;
+        let lastScore = 0;
 
-        // 1. Kiểm tra môi trường chạy (Quan trọng!)
+        function getRandomMessage(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
         window.onload = async () => {
             if (window.location.protocol === 'file:') {
                 showError("LỖI NGHIÊM TRỌNG: Bạn không được mở trực tiếp file HTML.<br>Hãy upload lên web hoặc dùng Live Server.");
                 return;
             }
 
-            // Hẹn giờ: Nếu 8 giây mà chưa tải xong AI thì hiện nút Bỏ qua
             loadTimeout = setTimeout(() => {
                 if(UI.btnStart.classList.contains('hidden')) {
                     UI.errorArea.classList.remove('hidden');
@@ -138,49 +216,39 @@
             await loadAI();
         };
 
-        // 2. Tải AI Models
         async function loadAI() {
-            // Try local ./models first, then fallback to CDN
             const LOCAL = './models';
             const FALLBACK = 'https://justadudewhohacks.github.io/face-api.js/models';
             const attempts = [LOCAL, FALLBACK];
 
             for (const URL of attempts) {
                 try {
-                    UI.statusText.innerText = `Đang tải mô hình từ: ${URL}`;
-                    console.log('Loading models from', URL);
+                    UI.statusText.innerText = `Đang tải AI từ: ${URL.includes('github') ? 'Cloud' : 'Local'}`;
                     await Promise.all([
                         faceapi.nets.tinyFaceDetector.loadFromUri(URL),
-                        faceapi.nets.faceLandmark68Net.loadFromUri(URL), // Cần để đo miệng
+                        faceapi.nets.faceLandmark68Net.loadFromUri(URL),
                         faceapi.nets.faceExpressionNet.loadFromUri(URL)
                     ]);
 
                     clearTimeout(loadTimeout);
-                    UI.statusText.innerText = "Sẵn sàng!";
+                    UI.statusText.innerText = "Sẵn sàng! 🚀";
                     UI.spinner.style.display = 'none';
                     UI.overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
                     UI.btnStart.classList.remove('hidden');
-                    console.log('Models loaded from', URL);
                     return;
                 } catch (err) {
-                    console.warn('Failed loading models from', URL, err && err.message);
-                    // try next
+                    console.warn('Failed loading from', URL);
                 }
             }
 
-            // If we reach here, all attempts failed
             showError("Không tải được AI từ cả thư mục local và CDN.", new Error('Models fetch failed'));
-            // Provide quick instructions for the user
-            UI.errorMsg.innerHTML = `Không tải model. Hãy tải thư mục <code>models/</code> vào cùng thư mục với file này.<br>
-            1) Tải từ: <a href="https://github.com/justadudewhohacks/face-api.js-models" target="_blank" class="text-pink-300 underline">face-api.js-models</a><br>
-            2) Giải nén thành folder <code>models</code> và phục vụ qua HTTP (không mở bằng file://).`;
+            UI.errorMsg.innerHTML = `Không tải được model AI.<br><a href="https://github.com/justadudewhohacks/face-api.js-models" target="_blank" class="text-pink-300 underline">Tải models tại đây</a>`;
             UI.errorArea.classList.remove('hidden');
         }
 
-        // 3. Khởi động Camera & Mic
         async function initApp() {
             UI.btnStart.classList.add('hidden');
-            UI.statusText.innerText = "Đang xin quyền...";
+            UI.statusText.innerText = "Đang xin quyền Camera & Mic...";
             UI.spinner.style.display = 'block';
 
             try {
@@ -194,7 +262,7 @@
 
                 UI.video.onloadedmetadata = () => {
                     UI.video.play();
-                    UI.overlay.style.display = 'none'; // Ẩn màn hình chờ
+                    UI.overlay.style.display = 'none';
                     isRunning = true;
                     loop();
                 };
@@ -203,7 +271,6 @@
             }
         }
 
-        // 4. Thiết lập Âm thanh
         function setupAudio(stream) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioCtx.createAnalyser();
@@ -219,11 +286,34 @@
             return data.reduce((a, b) => a + b) / data.length;
         }
 
-        // 5. Vòng lặp xử lý chính
+        function spawnFloatingEmoji(emoji) {
+            const el = document.createElement('div');
+            el.className = 'floating-emoji';
+            el.innerText = emoji;
+            el.style.left = (Math.random() * (window.innerWidth - 50)) + 'px';
+            el.style.top = (window.innerHeight - 100) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2000);
+        }
+
+        function updateComboDisplay() {
+            UI.comboNum.innerText = comboCount;
+            if (comboCount > 0) {
+                UI.comboCounter.classList.add('show');
+            } else {
+                UI.comboCounter.classList.remove('show');
+            }
+        }
+
+        function triggerVibration() {
+            if (navigator.vibrate) {
+                navigator.vibrate([50, 30, 50]);
+            }
+        }
+
         async function loop() {
             if (!isRunning) return;
 
-            // Nhận diện khuôn mặt
             const detection = await faceapi.detectSingleFace(UI.video, new faceapi.TinyFaceDetectorOptions())
                 .withFaceLandmarks()
                 .withFaceExpressions();
@@ -232,30 +322,25 @@
             let isMouthOpen = false;
 
             if (detection) {
-                // a. Cười
                 smile = detection.expressions.happy;
 
-                // b. Mở miệng (Tính khoảng cách môi trên - môi dưới)
                 const mouth = detection.landmarks.getMouth();
-                // Điểm 14 (môi trên dưới) và 18 (môi dưới trên) của inner lips
                 const innerLipHeight = Math.abs(mouth[14].y - mouth[18].y);
                 const faceHeight = detection.detection.box.height;
-                
+
                 mouthOpenRatio = innerLipHeight / faceHeight;
                 isMouthOpen = mouthOpenRatio > THRESHOLD.mouth;
 
-                // Cập nhật Debug
-                UI.txtSmile.innerText = isMouthOpen ? "😆 " + Math.round(smile*100) + "%" : "😐 " + Math.round(smile*100) + "%";
-                UI.txtSmile.className = smile > THRESHOLD.smile ? "text-green-400 font-bold" : "text-white";
-                
+                UI.txtSmile.innerText = (smile > THRESHOLD.smile ? "😆 " : "😐 ") + Math.round(smile*100) + "%";
+                UI.txtSmile.className = smile > THRESHOLD.smile ? "text-green-400 font-bold sparkle" : "text-white";
+
                 UI.txtMouth.innerText = isMouthOpen ? "😬 Mở" : "🤐 Đóng";
-                UI.txtMouth.className = isMouthOpen ? "text-green-400 font-bold" : "text-white";
+                UI.txtMouth.className = isMouthOpen ? "text-green-400 font-bold sparkle" : "text-white";
             }
 
-            UI.txtVol.innerText = vol > THRESHOLD.volume ? "🔊 " + Math.round(vol) : "🔇 " + Math.round(vol);
-            UI.txtVol.className = vol > THRESHOLD.volume ? "text-green-400 font-bold" : "text-white";
+            UI.txtVol.innerText = (vol > THRESHOLD.volume ? "🔊 " : "🔇 ") + Math.round(vol);
+            UI.txtVol.className = vol > THRESHOLD.volume ? "text-green-400 font-bold sparkle" : "text-white";
 
-            // --- LOGIC GAME ---
             updateGame(smile, isMouthOpen, vol);
 
             requestAnimationFrame(loop);
@@ -266,22 +351,55 @@
             let msg = "";
 
             if (smile < THRESHOLD.smile) {
-                msg = "Hãy cười thật tươi nào! 😁";
-                score = smile * 40;
+                msg = getRandomMessage(MESSAGES.needSmile);
+                score = Math.round(smile * 50);
+                UI.progressBar.classList.remove('progress-glow');
             } else if (!isMouthOpen) {
-                msg = "Cười nhe răng ra (Mở miệng)! 😬";
+                msg = getRandomMessage(MESSAGES.needMouth);
                 score = 65;
+                UI.progressBar.classList.add('progress-glow');
             } else if (vol < THRESHOLD.volume) {
-                msg = "Cười thành tiếng đi: HA HA HA! 🔊";
+                msg = getRandomMessage(MESSAGES.needVolume);
                 score = 85;
                 UI.card.classList.remove("shake");
+                UI.progressBar.classList.add('progress-glow');
             } else {
-                // WIN
-                msg = "TUYỆT VỜI !!! 🎉";
+                msg = "XUẤT SẮC QUÁ ĐI! 🎉✨";
                 score = 100;
                 finish();
                 return;
             }
+
+            // Combo system
+            if (smile > THRESHOLD.smile && isMouthOpen && vol > THRESHOLD.volume * 0.7) {
+                comboCount++;
+                clearTimeout(comboTimer);
+                updateComboDisplay();
+
+                if (comboCount % 2 === 0) {
+                    spawnFloatingEmoji(['🎉', '⭐', '✨', '💖', '🎊', '🌟'][Math.floor(Math.random() * 6)]);
+                }
+
+                if (comboCount % 5 === 0) {
+                    confetti({
+                        particleCount: 30,
+                        spread: 60,
+                        origin: { y: 0.7 }
+                    });
+                    triggerVibration();
+                }
+
+                comboTimer = setTimeout(() => {
+                    comboCount = 0;
+                    updateComboDisplay();
+                }, 1500);
+            }
+
+            // Progress bar animation khi tăng score
+            if (score > lastScore) {
+                UI.progressBar.style.transition = 'width 0.3s ease-out';
+            }
+            lastScore = score;
 
             UI.gameMsg.innerText = msg;
             UI.progressBar.style.width = score + "%";
@@ -292,29 +410,55 @@
             if (finished) return;
             finished = true;
             isRunning = false;
-            
-            UI.gameMsg.innerText = "CHÚC MỪNG GIÁNG SINH! 🎁";
-            UI.gameMsg.className = "text-xl font-bold text-pink-600 animate-bounce";
-            
-            UI.progressBar.className = "h-full w-full rounded-full rainbow-bar";
+
+            // Fireworks celebration
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 3,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#ff0000', '#ffa500', '#ffff00', '#00ff00', '#0000ff', '#ff00ff']
+                });
+                confetti({
+                    particleCount: 3,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#ff0000', '#ffa500', '#ffff00', '#00ff00', '#0000ff', '#ff00ff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+
+            UI.card.style.transform = 'scale(1.05)';
             UI.card.classList.add("shake");
+
+            UI.gameMsg.innerText = "XUẤT SẮC! QUÀ TẶNG ĐÂY RỒI! 🎁✨🎊";
+            UI.gameMsg.className = "text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 animate-bounce";
+
+            UI.progressBar.className = "h-full w-full rounded-full rainbow-bar";
+
+            triggerVibration();
 
             setTimeout(() => {
                 window.location.href = VOUCHER_LINK;
-            }, 1500);
+            }, 3000);
         }
 
         function showError(msg, err) {
-            console.error(err);
+            if (err) console.error(err);
             UI.overlay.style.display = 'flex';
             UI.spinner.style.display = 'none';
-            UI.statusText.innerText = "Đã xảy ra lỗi";
+            UI.statusText.innerText = "Đã xảy ra lỗi 😢";
             UI.errorArea.classList.remove('hidden');
             UI.errorMsg.innerHTML = msg;
         }
     </script>
 </body>
 </html>
-
-
-
